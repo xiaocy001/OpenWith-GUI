@@ -5,6 +5,31 @@ import Testing
 @MainActor
 struct AssociationListViewModelTests {
     @Test
+    func selectsFirstRowAfterInitialLoadWhenSelectionIsEmpty() async throws {
+        let textEdit = AppDescriptor(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "TextEdit",
+            appURL: URL(fileURLWithPath: "/Applications/TextEdit.app"),
+            isAvailable: true
+        )
+
+        let repository = RepositoryStub(
+            rows: [
+                ExtensionAssociationRow(rawExtension: "json", currentDefaultApp: textEdit, candidateApps: [textEdit]),
+                ExtensionAssociationRow(rawExtension: "md", currentDefaultApp: nil, candidateApps: [])
+            ],
+            apps: [textEdit]
+        )
+
+        let viewModel = AssociationListViewModel(repository: repository, writer: WriterStub(results: []))
+
+        await viewModel.load()
+        viewModel.selectFirstRowIfNeeded()
+
+        #expect(viewModel.selection == ["json"])
+    }
+
+    @Test
     func filtersRowsByExtensionAndAppName() async throws {
         let textEdit = AppDescriptor(
             bundleIdentifier: "com.apple.TextEdit",
