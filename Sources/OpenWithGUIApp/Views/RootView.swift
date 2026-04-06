@@ -2,6 +2,7 @@ import SwiftUI
 import Observation
 
 struct RootView: View {
+    @State private var hasAppliedInitialSelection = false
     @State private var showingBatchPicker = false
     @State private var showingAddSheet = false
     @State private var showingSinglePicker = false
@@ -36,6 +37,14 @@ struct RootView: View {
                 await viewModel.load()
             }
         }
+        .onChange(of: viewModel.phase) { _, newPhase in
+            guard newPhase == .loaded, !hasAppliedInitialSelection else {
+                return
+            }
+
+            viewModel.selectFirstRowIfNeeded()
+            hasAppliedInitialSelection = true
+        }
     }
 
     private var content: some View {
@@ -69,6 +78,8 @@ struct RootView: View {
             AppPickerSheet(
                 apps: viewModel.availableApps,
                 title: "Set Selected Extensions",
+                candidateApps: [],
+                showsCandidateGrouping: false,
                 onSelect: { app in
                     Task {
                         await viewModel.apply(app: app, to: Array(viewModel.selection).sorted())
@@ -77,10 +88,16 @@ struct RootView: View {
                 }
             )
         }
-        .sheet(isPresented: $showingSinglePicker) {
+        .sheet(isPresented: $showingSinglePicker, onDismiss: {
+            singleSelectionExtension = nil
+        }) {
+            let selectedRow = viewModel.rows.first { $0.normalizedExtension == singleSelectionExtension }
+
             AppPickerSheet(
                 apps: viewModel.availableApps,
                 title: "Set Default App for .\(singleSelectionExtension ?? "")",
+                candidateApps: selectedRow?.candidateApps ?? [],
+                showsCandidateGrouping: true,
                 onSelect: { app in
                     guard let normalizedExtension = singleSelectionExtension else {
                         return

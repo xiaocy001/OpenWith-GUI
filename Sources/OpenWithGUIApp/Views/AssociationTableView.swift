@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import Observation
 
@@ -12,8 +13,17 @@ struct AssociationTableView: View {
             }
 
             TableColumn("Default App") { row in
-                Text(row.currentDefaultApp?.displayName ?? "Not Set")
-                    .foregroundStyle(row.currentDefaultApp == nil ? .secondary : .primary)
+                if let app = row.currentDefaultApp {
+                    HStack(spacing: 8) {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
+                            .resizable()
+                            .frame(width: 16, height: 16)
+                        Text(app.displayName)
+                    }
+                } else {
+                    Text("Not Set")
+                        .foregroundStyle(.secondary)
+                }
             }
 
             TableColumn("Candidate Apps") { row in

@@ -4,6 +4,8 @@ import SwiftUI
 struct AppPickerSheet: View {
     let apps: [AppDescriptor]
     let title: String
+    let candidateApps: [AppDescriptor]
+    let showsCandidateGrouping: Bool
     let onSelect: (AppDescriptor) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -16,41 +18,65 @@ struct AppPickerSheet: View {
 
             TextField("Search apps", text: $searchText)
 
-            List(filteredApps) { app in
-                Button {
-                    onSelect(app)
-                    dismiss()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
-                            .resizable()
-                            .frame(width: 28, height: 28)
+            List {
+                ForEach(sections) { section in
+                    Section(section.title) {
+                        ForEach(section.apps) { app in
+                            Button {
+                                onSelect(app)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
+                                        .resizable()
+                                        .frame(width: 28, height: 28)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(app.displayName)
-                            Text(app.bundleIdentifier)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(app.displayName)
+                                        Text(app.bundleIdentifier)
+                                            .font(.caption.monospaced())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                .buttonStyle(.plain)
             }
             .frame(minHeight: 320)
+
+            HStack {
+                Spacer()
+
+                Button("Cancel") {
+                    dismiss()
+                }
+            }
         }
         .padding()
         .frame(width: 520, height: 480)
     }
 
-    private var filteredApps: [AppDescriptor] {
-        guard !searchText.isEmpty else {
-            return apps
+    private var sections: [AppPickerSection] {
+        if showsCandidateGrouping {
+            return AppPickerSection.makeSections(
+                apps: apps,
+                candidateApps: candidateApps,
+                searchText: searchText
+            )
         }
 
-        let query = searchText.lowercased()
-        return apps.filter {
-            $0.displayName.lowercased().contains(query)
-                || $0.bundleIdentifier.lowercased().contains(query)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let filteredApps = apps.filter { app in
+            guard !query.isEmpty else {
+                return true
+            }
+
+            return app.displayName.lowercased().contains(query)
+                || app.bundleIdentifier.lowercased().contains(query)
         }
+
+        return filteredApps.isEmpty ? [] : [AppPickerSection(title: "Apps", apps: filteredApps)]
     }
 }
