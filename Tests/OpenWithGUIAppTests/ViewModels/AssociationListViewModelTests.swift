@@ -5,6 +5,127 @@ import Testing
 @MainActor
 struct AssociationListViewModelTests {
     @Test
+    func exposesUniqueSortedDefaultAppFilterOptions() async throws {
+        let preview = AppDescriptor(
+            bundleIdentifier: "com.apple.Preview",
+            displayName: "Preview",
+            appURL: URL(fileURLWithPath: "/Applications/Preview.app"),
+            isAvailable: true
+        )
+        let xcode = AppDescriptor(
+            bundleIdentifier: "com.apple.dt.Xcode",
+            displayName: "Xcode",
+            appURL: URL(fileURLWithPath: "/Applications/Xcode.app"),
+            isAvailable: true
+        )
+
+        let repository = RepositoryStub(
+            rows: [
+                ExtensionAssociationRow(rawExtension: "png", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "jpg", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "swift", currentDefaultApp: xcode, candidateApps: [xcode])
+            ],
+            apps: [preview, xcode]
+        )
+
+        let viewModel = AssociationListViewModel(repository: repository, writer: WriterStub(results: []))
+        await viewModel.load()
+
+        #expect(viewModel.defaultAppFilterOptions.map(\.bundleIdentifier) == [
+            "com.apple.Preview",
+            "com.apple.dt.Xcode"
+        ])
+    }
+
+    @Test
+    func filtersVisibleRowsBySelectedDefaultApp() async throws {
+        let preview = AppDescriptor(
+            bundleIdentifier: "com.apple.Preview",
+            displayName: "Preview",
+            appURL: URL(fileURLWithPath: "/Applications/Preview.app"),
+            isAvailable: true
+        )
+        let xcode = AppDescriptor(
+            bundleIdentifier: "com.apple.dt.Xcode",
+            displayName: "Xcode",
+            appURL: URL(fileURLWithPath: "/Applications/Xcode.app"),
+            isAvailable: true
+        )
+
+        let repository = RepositoryStub(
+            rows: [
+                ExtensionAssociationRow(rawExtension: "png", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "jpg", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "swift", currentDefaultApp: xcode, candidateApps: [xcode])
+            ],
+            apps: [preview, xcode]
+        )
+
+        let viewModel = AssociationListViewModel(repository: repository, writer: WriterStub(results: []))
+        await viewModel.load()
+        viewModel.applyDefaultAppFilter(preview)
+
+        #expect(viewModel.visibleRows.map(\.normalizedExtension) == ["jpg", "png"])
+    }
+
+    @Test
+    func clearsFilterBackToAllApps() async throws {
+        let preview = AppDescriptor(
+            bundleIdentifier: "com.apple.Preview",
+            displayName: "Preview",
+            appURL: URL(fileURLWithPath: "/Applications/Preview.app"),
+            isAvailable: true
+        )
+
+        let repository = RepositoryStub(
+            rows: [
+                ExtensionAssociationRow(rawExtension: "png", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "json", currentDefaultApp: nil, candidateApps: [])
+            ],
+            apps: [preview]
+        )
+
+        let viewModel = AssociationListViewModel(repository: repository, writer: WriterStub(results: []))
+        await viewModel.load()
+        viewModel.applyDefaultAppFilter(preview)
+        viewModel.clearDefaultAppFilter()
+
+        #expect(viewModel.visibleRows.map(\.normalizedExtension) == ["json", "png"])
+    }
+
+    @Test
+    func movesSelectionToFirstVisibleRowWhenFilterHidesCurrentSelection() async throws {
+        let preview = AppDescriptor(
+            bundleIdentifier: "com.apple.Preview",
+            displayName: "Preview",
+            appURL: URL(fileURLWithPath: "/Applications/Preview.app"),
+            isAvailable: true
+        )
+        let xcode = AppDescriptor(
+            bundleIdentifier: "com.apple.dt.Xcode",
+            displayName: "Xcode",
+            appURL: URL(fileURLWithPath: "/Applications/Xcode.app"),
+            isAvailable: true
+        )
+
+        let repository = RepositoryStub(
+            rows: [
+                ExtensionAssociationRow(rawExtension: "png", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "jpg", currentDefaultApp: preview, candidateApps: [preview]),
+                ExtensionAssociationRow(rawExtension: "swift", currentDefaultApp: xcode, candidateApps: [xcode])
+            ],
+            apps: [preview, xcode]
+        )
+
+        let viewModel = AssociationListViewModel(repository: repository, writer: WriterStub(results: []))
+        await viewModel.load()
+        viewModel.selection = ["swift"]
+        viewModel.applyDefaultAppFilter(preview)
+
+        #expect(viewModel.selection == ["jpg"])
+    }
+
+    @Test
     func selectsFirstRowAfterInitialLoadWhenSelectionIsEmpty() async throws {
         let textEdit = AppDescriptor(
             bundleIdentifier: "com.apple.TextEdit",
