@@ -53,10 +53,22 @@ Build and open it immediately:
 ./scripts/package-macos-app.sh --open
 ```
 
+Build a distributable DMG:
+
+```bash
+./scripts/package-macos-dmg.sh --release
+```
+
 The generated app bundle will be placed at:
 
 ```text
 dist/OpenWithGUI.app
+```
+
+The generated DMG will be placed at:
+
+```text
+dist/OpenWithGUI.dmg
 ```
 
 ## Project Structure
