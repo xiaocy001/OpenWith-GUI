@@ -5,6 +5,7 @@ struct RootView: View {
     @State private var hasAppliedInitialSelection = false
     @State private var showingBatchPicker = false
     @State private var showingAddSheet = false
+    @State private var showingDefaultAppFilterPicker = false
     @State private var showingSinglePicker = false
     @State private var singleSelectionExtension: String?
     @State private var viewModel: AssociationListViewModel
@@ -72,23 +73,14 @@ struct RootView: View {
         .searchable(text: $bindableViewModel.searchText, placement: .toolbar)
         .toolbar {
             ToolbarItemGroup {
-                Picker(
-                    "Default App",
-                    selection: Binding(
-                        get: { viewModel.selectedDefaultAppBundleIdentifier ?? "__all__" },
-                        set: { newValue in
-                            if newValue == "__all__" {
-                                viewModel.clearDefaultAppFilter()
-                            } else if let app = viewModel.defaultAppFilterOptions.first(where: { $0.bundleIdentifier == newValue }) {
-                                viewModel.applyDefaultAppFilter(app)
-                            }
-                        }
+                Button {
+                    showingDefaultAppFilterPicker = true
+                } label: {
+                    Text(
+                        viewModel.selectedDefaultAppBundleIdentifier.flatMap { bundleIdentifier in
+                            viewModel.defaultAppFilterOptions.first(where: { $0.bundleIdentifier == bundleIdentifier })?.displayName
+                        } ?? "All Apps"
                     )
-                ) {
-                    Text("All Apps").tag("__all__")
-                    ForEach(viewModel.defaultAppFilterOptions) { app in
-                        Text(app.displayName).tag(app.bundleIdentifier)
-                    }
                 }
                 .frame(width: 220)
 
@@ -105,6 +97,29 @@ struct RootView: View {
                     showingAddSheet = true
                 }
             }
+        }
+        .sheet(isPresented: $showingDefaultAppFilterPicker) {
+            AppPickerSheet(
+                apps: viewModel.defaultAppFilterOptions,
+                title: "Filter by Default App",
+                candidateApps: [],
+                showsCandidateGrouping: false,
+                leadingChoices: [
+                    AppPickerChoice.special(
+                        id: "all-apps",
+                        title: "All Apps",
+                        subtitle: "Show every current default app binding"
+                    )
+                ],
+                onSelectChoice: { choice in
+                    if choice.id == "special:all-apps" {
+                        viewModel.clearDefaultAppFilter()
+                    } else if let app = choice.appDescriptor {
+                        viewModel.applyDefaultAppFilter(app)
+                    }
+                    showingDefaultAppFilterPicker = false
+                }
+            )
         }
         .sheet(isPresented: $showingBatchPicker) {
             AppPickerSheet(

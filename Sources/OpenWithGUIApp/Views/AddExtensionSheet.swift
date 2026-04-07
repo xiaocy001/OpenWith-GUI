@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct AddExtensionSheet: View {
@@ -7,6 +8,7 @@ struct AddExtensionSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var rawExtension = ""
     @State private var selectedAppID: AppDescriptor.ID?
+    @State private var showingAppPicker = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -16,12 +18,34 @@ struct AddExtensionSheet: View {
             TextField("json", text: $rawExtension)
                 .textFieldStyle(.roundedBorder)
 
-            Picker("Default App", selection: $selectedAppID) {
-                Text("Choose an app").tag(AppDescriptor.ID?.none)
-                ForEach(apps) { app in
-                    Text(app.displayName).tag(AppDescriptor.ID?.some(app.id))
+            Button {
+                showingAppPicker = true
+            } label: {
+                HStack(spacing: 12) {
+                    if let selectedApp = apps.first(where: { $0.id == selectedAppID }) {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: selectedApp.appURL.path))
+                            .resizable()
+                            .frame(width: 20, height: 20)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(selectedApp.displayName)
+                            Text(selectedApp.bundleIdentifier)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        Text("Choose an app")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
             }
+            .buttonStyle(.plain)
 
             HStack {
                 Spacer()
@@ -43,5 +67,18 @@ struct AddExtensionSheet: View {
         }
         .padding()
         .frame(width: 420)
+        .sheet(isPresented: $showingAppPicker) {
+            AppPickerSheet(
+                apps: apps,
+                title: "Choose Default App",
+                candidateApps: [],
+                showsCandidateGrouping: false,
+                leadingChoices: [],
+                onSelectChoice: { choice in
+                    selectedAppID = choice.appDescriptor?.id
+                    showingAppPicker = false
+                }
+            )
+        }
     }
 }
