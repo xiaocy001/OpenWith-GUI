@@ -71,6 +71,7 @@ struct AddExtensionSheet: View {
             AppPickerSheet(
                 apps: apps,
                 title: "Choose Default App",
+                searchPlaceholder: "Search apps",
                 candidateApps: [],
                 showsCandidateGrouping: false,
                 leadingChoices: [],

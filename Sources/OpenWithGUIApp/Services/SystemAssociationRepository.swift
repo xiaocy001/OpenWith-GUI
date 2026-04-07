@@ -13,10 +13,22 @@ struct SystemAssociationRepository: AssociationRepository {
     struct UserStoreAdapter: Sendable {
         var loadHandler: @Sendable () throws -> Set<String>
         var addHandler: @Sendable (String) throws -> Void
+        var removeHandler: @Sendable (String) throws -> Void
+
+        init(
+            loadHandler: @escaping @Sendable () throws -> Set<String>,
+            addHandler: @escaping @Sendable (String) throws -> Void,
+            removeHandler: @escaping @Sendable (String) throws -> Void = { _ in }
+        ) {
+            self.loadHandler = loadHandler
+            self.addHandler = addHandler
+            self.removeHandler = removeHandler
+        }
 
         static let live = UserStoreAdapter(
             loadHandler: { try UserAddedExtensionStore().load() },
-            addHandler: { try UserAddedExtensionStore().add($0) }
+            addHandler: { try UserAddedExtensionStore().add($0) },
+            removeHandler: { try UserAddedExtensionStore().remove($0) }
         )
     }
 
@@ -53,6 +65,10 @@ struct SystemAssociationRepository: AssociationRepository {
 
         try userStore.addHandler(normalized)
         return normalized
+    }
+
+    func removeUserExtension(_ normalizedExtension: String) async throws {
+        try userStore.removeHandler(normalizedExtension)
     }
 
     private func rows(filteredTo filter: Set<String>?) async throws -> [ExtensionAssociationRow] {

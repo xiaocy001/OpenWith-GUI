@@ -27,6 +27,16 @@ struct UserAddedExtensionStore {
         defaults.set(Array(current).sorted(), forKey: defaultsKey)
     }
 
+    func remove(_ rawExtension: String) throws {
+        guard let normalized = ExtensionAssociationRow.normalize(rawExtension) else {
+            throw ValidationError.invalidExtension
+        }
+
+        var current = try load()
+        current.remove(normalized)
+        defaults.set(Array(current).sorted(), forKey: defaultsKey)
+    }
+
     enum ValidationError: Error {
         case invalidExtension
     }

@@ -13,6 +13,14 @@ struct ExtensionAssociationRow: Identifiable, Equatable, Sendable {
     var id: String { normalizedExtension }
     var displayExtension: String { ".\(normalizedExtension)" }
     var statusFlags: [AssociationStatusFlag] { Self.makeStatusFlags(for: self) }
+    var statusDisplayText: String {
+        let flags = statusFlags
+        guard !flags.isEmpty else {
+            return AssociationStatusFlag.noIssues.displayTitle
+        }
+
+        return flags.map(\.displayTitle).joined(separator: ", ")
+    }
 
     init(
         rawExtension: String,

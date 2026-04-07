@@ -3,9 +3,11 @@ import Observation
 
 struct RootView: View {
     @State private var hasAppliedInitialSelection = false
+    @State private var tableResetToken = 0
     @State private var showingBatchPicker = false
     @State private var showingAddSheet = false
     @State private var showingDefaultAppFilterPicker = false
+    @State private var showingStatusFilterPicker = false
     @State private var showingSinglePicker = false
     @State private var singleSelectionExtension: String?
     @State private var viewModel: AssociationListViewModel
@@ -30,21 +32,18 @@ struct RootView: View {
                     description: Text(message)
                 )
             case .loaded:
-                if viewModel.visibleRows.isEmpty {
+                if viewModel.shouldShowFullEmptyState {
                     ContentUnavailableView(
-                        "No Matching Extensions",
+                        "No Extensions Available",
                         systemImage: "line.3.horizontal.decrease.circle",
-                        description: Text(
-                            viewModel.selectedDefaultAppBundleIdentifier == nil
-                                ? "No extensions are currently available."
-                                : "No extensions are currently opened by the selected app. Use Default App -> All Apps to clear the filter."
-                        )
+                        description: Text("No extensions are currently available.")
                     )
                 } else {
                     content
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .task {
             if viewModel.phase == .idle {
                 await viewModel.load()
@@ -63,35 +62,50 @@ struct RootView: View {
     private var content: some View {
         @Bindable var bindableViewModel = viewModel
 
-        return HSplitView {
-            AssociationTableView(viewModel: bindableViewModel)
-                .frame(minWidth: 760)
+        return GeometryReader { proxy in
+            HSplitView {
+                AssociationTableView(viewModel: bindableViewModel)
+                    .background(TableScrollResetView(token: tableResetToken))
+                    .frame(minWidth: 760, maxWidth: .infinity, maxHeight: .infinity)
 
-            sidebar
-                .frame(minWidth: 320, idealWidth: 360)
+                sidebar
+                    .frame(minWidth: 320, idealWidth: 360, maxHeight: .infinity)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
-        .searchable(text: $bindableViewModel.searchText, placement: .toolbar)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: viewModel.searchText) { _, _ in
+            viewModel.reconcileSelectionForVisibleRows()
+        }
         .toolbar {
             ToolbarItemGroup {
-                Button {
-                    showingDefaultAppFilterPicker = true
-                } label: {
-                    Text(
-                        viewModel.selectedDefaultAppBundleIdentifier.flatMap { bundleIdentifier in
-                            viewModel.defaultAppFilterOptions.first(where: { $0.bundleIdentifier == bundleIdentifier })?.displayName
-                        } ?? "All Apps"
-                    )
-                }
+                ToolbarSearchField(
+                    text: $bindableViewModel.searchText,
+                    placeholder: "Search extensions"
+                )
                 .frame(width: 220)
+
+                Button(viewModel.selectedDefaultAppBundleIdentifier == nil ? "Filter by App" : "Clear App Filter") {
+                    if viewModel.selectedDefaultAppBundleIdentifier == nil {
+                        showingDefaultAppFilterPicker = true
+                    } else {
+                        viewModel.clearDefaultAppFilterSelectingFirstVisibleRow()
+                        tableResetToken += 1
+                    }
+                }
+
+                Button(viewModel.selectedStatusFilter == nil ? "Filter by Status" : "Clear Status Filter") {
+                    if viewModel.selectedStatusFilter == nil {
+                        showingStatusFilterPicker = true
+                    } else {
+                        viewModel.clearStatusFilterSelectingFirstVisibleRow()
+                        tableResetToken += 1
+                    }
+                }
 
                 Button("Refresh") {
                     Task { await viewModel.load() }
                 }
-
-                Button("Set Selected to App") {
-                    showingBatchPicker = true
-                }
-                .disabled(viewModel.selection.isEmpty)
 
                 Button("Add Extension") {
                     showingAddSheet = true
@@ -102,6 +116,7 @@ struct RootView: View {
             AppPickerSheet(
                 apps: viewModel.defaultAppFilterOptions,
                 title: "Filter by Default App",
+                searchPlaceholder: "Search apps",
                 candidateApps: [],
                 showsCandidateGrouping: false,
                 leadingChoices: [
@@ -121,10 +136,37 @@ struct RootView: View {
                 }
             )
         }
+        .sheet(isPresented: $showingStatusFilterPicker) {
+            AppPickerSheet(
+                apps: [],
+                title: "Filter by Status",
+                searchPlaceholder: "Search statuses",
+                candidateApps: [],
+                showsCandidateGrouping: false,
+                leadingChoices: viewModel.statusFilterOptions.map { status in
+                    AppPickerChoice.special(
+                        id: "status:\(status.rawValue)",
+                        title: status.displayTitle,
+                        subtitle: status.displaySubtitle
+                    )
+                },
+                onSelectChoice: { choice in
+                    guard let statusRawValue = choice.id.split(separator: ":").last,
+                          let status = AssociationStatusFlag(rawValue: String(statusRawValue)) else {
+                        showingStatusFilterPicker = false
+                        return
+                    }
+
+                    viewModel.applyStatusFilter(status)
+                    showingStatusFilterPicker = false
+                }
+            )
+        }
         .sheet(isPresented: $showingBatchPicker) {
             AppPickerSheet(
                 apps: viewModel.availableApps,
                 title: "Set Selected Extensions",
+                searchPlaceholder: "Search apps",
                 candidateApps: [],
                 showsCandidateGrouping: false,
                 leadingChoices: [],
@@ -148,6 +190,7 @@ struct RootView: View {
             AppPickerSheet(
                 apps: viewModel.availableApps,
                 title: "Set Default App for .\(singleSelectionExtension ?? "")",
+                searchPlaceholder: "Search apps",
                 candidateApps: selectedRow?.candidateApps ?? [],
                 showsCandidateGrouping: true,
                 leadingChoices: [],
@@ -195,7 +238,12 @@ struct RootView: View {
                 onChooseApp: {
                     singleSelectionExtension = row.normalizedExtension
                     showingSinglePicker = true
-                }
+                },
+                onRemoveExtension: row.isUserAdded ? {
+                    Task {
+                        await viewModel.removeUserExtension(row.normalizedExtension)
+                    }
+                } : nil
             )
         } else {
             ContentUnavailableView(
@@ -222,6 +270,9 @@ private struct PreviewAssociationRepository: AssociationRepository {
 
     func addUserExtension(_ rawExtension: String) async throws -> String {
         ExtensionAssociationRow.normalize(rawExtension) ?? rawExtension
+    }
+
+    func removeUserExtension(_ normalizedExtension: String) async throws {
     }
 }
 

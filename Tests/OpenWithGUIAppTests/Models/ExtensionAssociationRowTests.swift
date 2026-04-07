@@ -35,4 +35,23 @@ struct ExtensionAssociationRowTests {
             .writeFailed
         ]))
     }
+
+    @Test
+    func displaysNoIssuesWhenNoStatusFlagsArePresent() {
+        let app = AppDescriptor(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "TextEdit",
+            appURL: URL(fileURLWithPath: "/Applications/TextEdit.app"),
+            isAvailable: true
+        )
+
+        let row = ExtensionAssociationRow(
+            rawExtension: ".txt",
+            currentDefaultApp: app,
+            candidateApps: [app, app]
+        )
+
+        #expect(row.statusFlags.isEmpty)
+        #expect(row.statusDisplayText == "No Issues")
+    }
 }

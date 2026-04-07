@@ -4,6 +4,7 @@ import SwiftUI
 struct AssociationDetailSidebar: View {
     let row: ExtensionAssociationRow
     let onChooseApp: () -> Void
+    let onRemoveExtension: (() -> Void)?
 
     var body: some View {
         ScrollView {
@@ -11,11 +12,19 @@ struct AssociationDetailSidebar: View {
                 Text(row.displayExtension)
                     .font(.largeTitle.bold())
 
-                Button("Change Default App") {
-                    onChooseApp()
+                HStack(spacing: 12) {
+                    Button("Change Default App") {
+                        onChooseApp()
+                    }
+
+                    if let onRemoveExtension {
+                        Button("Remove Extension", role: .destructive) {
+                            onRemoveExtension()
+                        }
+                    }
                 }
 
-                GroupBox("Current Default App") {
+                DetailSection(title: "Current Default App") {
                     if let app = row.currentDefaultApp {
                         AppSummaryView(app: app)
                     } else {
@@ -24,7 +33,7 @@ struct AssociationDetailSidebar: View {
                     }
                 }
 
-                GroupBox("Candidate Apps") {
+                DetailSection(title: "Candidate Apps") {
                     if row.candidateApps.isEmpty {
                         Text("No candidate apps were discovered for this extension.")
                             .foregroundStyle(.secondary)
@@ -50,6 +59,27 @@ struct AssociationDetailSidebar: View {
             }
             .padding()
         }
+    }
+}
+
+private struct DetailSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.headline)
+
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color(nsColor: .separatorColor))
+                )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

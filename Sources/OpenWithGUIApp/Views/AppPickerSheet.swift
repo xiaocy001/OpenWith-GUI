@@ -4,6 +4,7 @@ import SwiftUI
 struct AppPickerSheet: View {
     let apps: [AppDescriptor]
     let title: String
+    let searchPlaceholder: String
     let candidateApps: [AppDescriptor]
     let showsCandidateGrouping: Bool
     let leadingChoices: [AppPickerChoice]
@@ -17,7 +18,7 @@ struct AppPickerSheet: View {
             Text(title)
                 .font(.title2.bold())
 
-            TextField("Search apps", text: $searchText)
+            TextField(searchPlaceholder, text: $searchText)
 
             List {
                 if !filteredLeadingChoices.isEmpty {

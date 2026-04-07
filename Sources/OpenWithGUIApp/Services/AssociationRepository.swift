@@ -5,4 +5,5 @@ protocol AssociationRepository: Sendable {
     func refreshRows(for normalizedExtensions: [String]) async throws -> [ExtensionAssociationRow]
     func loadAppChoices() async throws -> [AppDescriptor]
     func addUserExtension(_ rawExtension: String) async throws -> String
+    func removeUserExtension(_ normalizedExtension: String) async throws
 }

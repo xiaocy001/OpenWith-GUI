@@ -24,6 +24,7 @@ final class AssociationListViewModel {
     var availableApps: [AppDescriptor] = []
     var selection: Set<String> = []
     var selectedDefaultAppBundleIdentifier: String?
+    var selectedStatusFilter: AssociationStatusFlag?
     var searchText = ""
     var sort: Sort = .extensionAscending
     var phase: Phase = .idle
@@ -42,8 +43,6 @@ final class AssociationListViewModel {
 
             let query = searchText.lowercased()
             return row.displayExtension.lowercased().contains(query)
-                || (row.currentDefaultApp?.displayName.lowercased().contains(query) ?? false)
-                || row.candidateApps.contains(where: { $0.displayName.lowercased().contains(query) })
         }
 
         let defaultAppFilteredRows = filteredRows.filter { row in
@@ -54,13 +53,25 @@ final class AssociationListViewModel {
             return row.currentDefaultApp?.bundleIdentifier == selectedDefaultAppBundleIdentifier
         }
 
+        let statusFilteredRows = defaultAppFilteredRows.filter { row in
+            guard let selectedStatusFilter else {
+                return true
+            }
+
+            if selectedStatusFilter == .noIssues {
+                return row.statusFlags.isEmpty
+            }
+
+            return row.statusFlags.contains(selectedStatusFilter)
+        }
+
         switch sort {
         case .extensionAscending:
-            return defaultAppFilteredRows.sorted { $0.normalizedExtension < $1.normalizedExtension }
+            return statusFilteredRows.sorted { $0.normalizedExtension < $1.normalizedExtension }
         case .extensionDescending:
-            return defaultAppFilteredRows.sorted { $0.normalizedExtension > $1.normalizedExtension }
+            return statusFilteredRows.sorted { $0.normalizedExtension > $1.normalizedExtension }
         case .defaultAppAscending:
-            return defaultAppFilteredRows.sorted {
+            return statusFilteredRows.sorted {
                 ($0.currentDefaultApp?.displayName ?? "") < ($1.currentDefaultApp?.displayName ?? "")
             }
         }
@@ -79,6 +90,10 @@ final class AssociationListViewModel {
         }
     }
 
+    var statusFilterOptions: [AssociationStatusFlag] {
+        AssociationStatusFlag.allCases
+    }
+
     var selectedRows: [ExtensionAssociationRow] {
         rows.filter { selection.contains($0.normalizedExtension) }
     }
@@ -89,6 +104,10 @@ final class AssociationListViewModel {
         }
 
         return rows.first(where: { selection.contains($0.normalizedExtension) })
+    }
+
+    var shouldShowFullEmptyState: Bool {
+        rows.isEmpty
     }
 
     func selectFirstRowIfNeeded() {
@@ -106,6 +125,32 @@ final class AssociationListViewModel {
 
     func clearDefaultAppFilter() {
         selectedDefaultAppBundleIdentifier = nil
+        reconcileSelectionWithVisibleRows()
+    }
+
+    func applyStatusFilter(_ status: AssociationStatusFlag) {
+        selectedStatusFilter = status
+        reconcileSelectionWithVisibleRows()
+    }
+
+    func clearStatusFilter() {
+        selectedStatusFilter = nil
+        reconcileSelectionWithVisibleRows()
+    }
+
+    func clearDefaultAppFilterSelectingFirstVisibleRow() {
+        clearDefaultAppFilter()
+        selection = []
+        selectFirstRowIfNeeded()
+    }
+
+    func clearStatusFilterSelectingFirstVisibleRow() {
+        clearStatusFilter()
+        selection = []
+        selectFirstRowIfNeeded()
+    }
+
+    func reconcileSelectionForVisibleRows() {
         reconcileSelectionWithVisibleRows()
     }
 
@@ -130,6 +175,16 @@ final class AssociationListViewModel {
             await apply(app: app, to: [normalizedExtension])
         } catch {
             phase = .failed(message: "Enter a valid extension before assigning an app.")
+        }
+    }
+
+    func removeUserExtension(_ normalizedExtension: String) async {
+        do {
+            try await repository.removeUserExtension(normalizedExtension)
+            rows = try await repository.loadRows()
+            reconcileSelectionWithVisibleRows()
+        } catch {
+            phase = .failed(message: "Unable to remove the selected extension.")
         }
     }
 
