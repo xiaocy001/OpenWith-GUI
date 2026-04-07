@@ -29,7 +29,19 @@ struct RootView: View {
                     description: Text(message)
                 )
             case .loaded:
-                content
+                if viewModel.visibleRows.isEmpty {
+                    ContentUnavailableView(
+                        "No Matching Extensions",
+                        systemImage: "line.3.horizontal.decrease.circle",
+                        description: Text(
+                            viewModel.selectedDefaultAppBundleIdentifier == nil
+                                ? "No extensions are currently available."
+                                : "No extensions are currently opened by the selected app. Use Default App -> All Apps to clear the filter."
+                        )
+                    )
+                } else {
+                    content
+                }
             }
         }
         .task {
@@ -60,6 +72,26 @@ struct RootView: View {
         .searchable(text: $bindableViewModel.searchText, placement: .toolbar)
         .toolbar {
             ToolbarItemGroup {
+                Picker(
+                    "Default App",
+                    selection: Binding(
+                        get: { viewModel.selectedDefaultAppBundleIdentifier ?? "__all__" },
+                        set: { newValue in
+                            if newValue == "__all__" {
+                                viewModel.clearDefaultAppFilter()
+                            } else if let app = viewModel.defaultAppFilterOptions.first(where: { $0.bundleIdentifier == newValue }) {
+                                viewModel.applyDefaultAppFilter(app)
+                            }
+                        }
+                    )
+                ) {
+                    Text("All Apps").tag("__all__")
+                    ForEach(viewModel.defaultAppFilterOptions) { app in
+                        Text(app.displayName).tag(app.bundleIdentifier)
+                    }
+                }
+                .frame(width: 220)
+
                 Button("Refresh") {
                     Task { await viewModel.load() }
                 }

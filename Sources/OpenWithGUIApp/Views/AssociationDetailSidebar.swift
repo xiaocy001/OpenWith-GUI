@@ -57,7 +57,7 @@ private struct AppSummaryView: View {
     let app: AppDescriptor
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: 6) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
                 .resizable()
                 .frame(width: 32, height: 32)

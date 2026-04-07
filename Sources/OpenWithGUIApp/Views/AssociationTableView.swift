@@ -14,12 +14,17 @@ struct AssociationTableView: View {
 
             TableColumn("Default App") { row in
                 if let app = row.currentDefaultApp {
-                    HStack(spacing: 8) {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
-                            .resizable()
-                            .frame(width: 16, height: 16)
-                        Text(app.displayName)
+                    Button {
+                        viewModel.applyDefaultAppFilter(app)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: app.appURL.path))
+                                .resizable()
+                                .frame(width: 16, height: 16)
+                            Text(app.displayName)
+                        }
                     }
+                    .buttonStyle(.plain)
                 } else {
                     Text("Not Set")
                         .foregroundStyle(.secondary)
