@@ -19,6 +19,7 @@ final class AssociationListViewModel {
 
     private let repository: AssociationRepository
     private let writer: AssociationWriter
+    private let finderClient: FinderClient
 
     var rows: [ExtensionAssociationRow] = []
     var availableApps: [AppDescriptor] = []
@@ -30,9 +31,14 @@ final class AssociationListViewModel {
     var phase: Phase = .idle
     var lastBatchSummary: String?
 
-    init(repository: AssociationRepository, writer: AssociationWriter) {
+    init(
+        repository: AssociationRepository,
+        writer: AssociationWriter,
+        finderClient: FinderClient = .live
+    ) {
         self.repository = repository
         self.writer = writer
+        self.finderClient = finderClient
     }
 
     var visibleRows: [ExtensionAssociationRow] {
@@ -198,9 +204,20 @@ final class AssociationListViewModel {
             let refreshedRows = try await repository.refreshRows(for: normalizedExtensions)
             merge(refreshedRows: refreshedRows, writeResults: writeResults, targetApp: app)
             lastBatchSummary = summary(for: writeResults)
+
+            if writeResults.contains(where: { $0.errorMessage == nil }) {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(800))
+                    refreshFinderIcons()
+                }
+            }
         } catch {
             phase = .failed(message: "Unable to update the selected extensions.")
         }
+    }
+
+    func refreshFinderIcons() {
+        finderClient.relaunch()
     }
 
     private func merge(

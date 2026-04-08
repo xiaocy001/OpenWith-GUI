@@ -3,7 +3,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="OpenWithGUI"
+BINARY_NAME="OpenWithGUI"
+PACKAGE_NAME="默认应用"
 BUILD_CONFIGURATION="debug"
 SHOULD_OPEN=0
 
@@ -27,18 +28,18 @@ done
 
 cd "$ROOT_DIR"
 
-echo "Building $APP_NAME ($BUILD_CONFIGURATION)..."
+echo "Building $BINARY_NAME ($BUILD_CONFIGURATION)..."
 swift build -c "$BUILD_CONFIGURATION"
 
 BIN_DIR="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
-BINARY_PATH="$BIN_DIR/$APP_NAME"
+BINARY_PATH="$BIN_DIR/$BINARY_NAME"
 
 if [[ ! -x "$BINARY_PATH" ]]; then
     echo "Built binary not found at: $BINARY_PATH" >&2
     exit 1
 fi
 
-APP_BUNDLE_DIR="$ROOT_DIR/dist/$APP_NAME.app"
+APP_BUNDLE_DIR="$ROOT_DIR/dist/$PACKAGE_NAME.app"
 CONTENTS_DIR="$APP_BUNDLE_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -55,8 +56,8 @@ fi
 rm -rf "$APP_BUNDLE_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
-cp "$BINARY_PATH" "$MACOS_DIR/$APP_NAME"
-chmod +x "$MACOS_DIR/$APP_NAME"
+cp "$BINARY_PATH" "$MACOS_DIR/$BINARY_NAME"
+chmod +x "$MACOS_DIR/$BINARY_NAME"
 cp "$ICON_SOURCE_PATH" "$RESOURCES_DIR/$ICON_TARGET_NAME"
 
 cat > "$PLIST_PATH" <<EOF
@@ -67,7 +68,7 @@ cat > "$PLIST_PATH" <<EOF
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>$APP_NAME</string>
+    <string>$BINARY_NAME</string>
     <key>CFBundleIdentifier</key>
     <string>com.openwithgui.app</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -75,7 +76,9 @@ cat > "$PLIST_PATH" <<EOF
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleName</key>
-    <string>$APP_NAME</string>
+    <string>$PACKAGE_NAME</string>
+    <key>CFBundleDisplayName</key>
+    <string>$PACKAGE_NAME</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

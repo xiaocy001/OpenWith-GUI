@@ -107,6 +107,10 @@ struct RootView: View {
                     Task { await viewModel.load() }
                 }
 
+                Button("Refresh Finder Icons") {
+                    viewModel.refreshFinderIcons()
+                }
+
                 Button("Add Extension") {
                     showingAddSheet = true
                 }

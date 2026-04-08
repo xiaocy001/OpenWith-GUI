@@ -419,6 +419,78 @@ struct AssociationListViewModelTests {
         #expect(viewModel.rows.map(\.normalizedExtension) == ["json"])
         #expect(viewModel.selection == ["json"])
     }
+
+    @Test
+    func applyRefreshesFinderIconsWhenAnyWriteSucceeds() async throws {
+        let textEdit = AppDescriptor(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "TextEdit",
+            appURL: URL(fileURLWithPath: "/Applications/TextEdit.app"),
+            isAvailable: true
+        )
+
+        let relaunchCount = LockedCount(0)
+        let finderClient = FinderClient {
+            relaunchCount.increment()
+        }
+
+        let repository = RepositoryStub(
+            rows: [ExtensionAssociationRow(rawExtension: "json", currentDefaultApp: nil, candidateApps: [textEdit])],
+            apps: [textEdit],
+            refreshedRows: [ExtensionAssociationRow(rawExtension: "json", currentDefaultApp: textEdit, candidateApps: [textEdit])]
+        )
+        let writer = WriterStub(results: [
+            AssociationWriteResult(normalizedExtension: "json", errorMessage: nil)
+        ])
+
+        let viewModel = AssociationListViewModel(
+            repository: repository,
+            writer: writer,
+            finderClient: finderClient
+        )
+        await viewModel.load()
+
+        await viewModel.apply(app: textEdit, to: ["json"])
+        try? await Task.sleep(for: .milliseconds(1000))
+
+        #expect(relaunchCount.value == 1)
+    }
+
+    @Test
+    func applyDoesNotRefreshFinderIconsWhenAllWritesFail() async throws {
+        let textEdit = AppDescriptor(
+            bundleIdentifier: "com.apple.TextEdit",
+            displayName: "TextEdit",
+            appURL: URL(fileURLWithPath: "/Applications/TextEdit.app"),
+            isAvailable: true
+        )
+
+        let relaunchCount = LockedCount(0)
+        let finderClient = FinderClient {
+            relaunchCount.increment()
+        }
+
+        let repository = RepositoryStub(
+            rows: [ExtensionAssociationRow(rawExtension: "json", currentDefaultApp: nil, candidateApps: [textEdit])],
+            apps: [textEdit],
+            refreshedRows: [ExtensionAssociationRow(rawExtension: "json", currentDefaultApp: nil, candidateApps: [textEdit])]
+        )
+        let writer = WriterStub(results: [
+            AssociationWriteResult(normalizedExtension: "json", errorMessage: "failed")
+        ])
+
+        let viewModel = AssociationListViewModel(
+            repository: repository,
+            writer: writer,
+            finderClient: finderClient
+        )
+        await viewModel.load()
+
+        await viewModel.apply(app: textEdit, to: ["json"])
+        try? await Task.sleep(for: .milliseconds(1000))
+
+        #expect(relaunchCount.value == 0)
+    }
 }
 
 private struct RepositoryStub: AssociationRepository, Sendable {
@@ -472,6 +544,27 @@ private final class LockedFlag: @unchecked Sendable {
     func set(_ newValue: Bool) {
         lock.lock()
         storage = newValue
+        lock.unlock()
+    }
+}
+
+private final class LockedCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: Int
+
+    init(_ value: Int) {
+        storage = value
+    }
+
+    var value: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func increment() {
+        lock.lock()
+        storage += 1
         lock.unlock()
     }
 }

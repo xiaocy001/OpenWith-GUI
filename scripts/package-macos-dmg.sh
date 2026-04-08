@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="OpenWithGUI"
+PACKAGE_NAME="默认应用"
 BUILD_CONFIGURATION="debug"
 SHOULD_OPEN=0
 
@@ -34,8 +34,8 @@ if [[ "$BUILD_CONFIGURATION" == "release" ]]; then
 fi
 ./scripts/package-macos-app.sh "${APP_ARGS[@]}"
 
-APP_BUNDLE_DIR="$ROOT_DIR/dist/$APP_NAME.app"
-DMG_PATH="$ROOT_DIR/dist/$APP_NAME.dmg"
+APP_BUNDLE_DIR="$ROOT_DIR/dist/$PACKAGE_NAME.app"
+DMG_PATH="$ROOT_DIR/dist/$PACKAGE_NAME.dmg"
 STAGING_DIR="$ROOT_DIR/dist/.dmg-staging"
 
 if [[ ! -d "$APP_BUNDLE_DIR" ]]; then
@@ -51,7 +51,7 @@ ln -s /Applications "$STAGING_DIR/Applications"
 
 echo "Creating DMG..."
 hdiutil create \
-    -volname "$APP_NAME" \
+    -volname "$PACKAGE_NAME" \
     -srcfolder "$STAGING_DIR" \
     -ov \
     -format UDZO \
